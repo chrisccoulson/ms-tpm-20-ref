@@ -183,6 +183,10 @@ _plat__NVEnable(
 #if FILE_BACKED_NV
     if(s_NvFile != NULL) 
         return 0;
+
+    if(s_NV_ephemeral)
+        return 0;
+
     // Initialize all the bytes in the ram copy of the NV
     _plat__NvMemoryClear(0, NV_MEMORY_SIZE);
 
@@ -265,7 +269,7 @@ _plat__IsNvAvailable(
         retVal = 1;
 #if FILE_BACKED_NV
     else
-        retVal = (s_NvFile == NULL);
+        retVal = (!s_NV_ephemeral && s_NvFile == NULL);
 #endif
     return retVal;
 }
@@ -365,6 +369,8 @@ _plat__NvCommit(
     )
 {
 #if FILE_BACKED_NV
+    if(s_NV_ephemeral)
+        return 0;
     return (NvFileCommit() ? 0 : 1);
 #else
     return 0;

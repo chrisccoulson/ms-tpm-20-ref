@@ -57,7 +57,7 @@
 #   error "Unsupported platform."
 #endif
 
-
+#include "Platform.h"
 #include "TpmTcpProtocol.h"
 #include "Manufacture_fp.h"
 #include "Platform_fp.h"
@@ -108,7 +108,9 @@ Usage(
         "Possible options are:\n"
         "   -h (--help) or ? - print this message\n"
         "   -m (--manufacture) - forces NV state of the TPM simulator to be "
-        "(re)manufactured\n",
+        "(re)manufactured\n"
+        "   -e (--ephemeral) - store the NV state of the TPM simulator in "
+        "memory (implies -m)\n",
         programName, DEFAULT_TPM_PORT);
     exit(1);
 }
@@ -245,7 +247,7 @@ main(
 
     // Parse command line options
 
-    if (CmdLineParser_Init(argc, argv, 2))
+    if (CmdLineParser_Init(argc, argv, 3))
     {
         if (   CmdLineParser_IsOptPresent("?", "?")
             || CmdLineParser_IsOptPresent("help", "h"))
@@ -255,6 +257,11 @@ main(
         if (CmdLineParser_IsOptPresent("manufacture", "m"))
         {
             manufacture = true;
+        }
+        if (CmdLineParser_IsOptPresent("ephemeral", "e"))
+        {
+            manufacture = true;
+	    s_NV_ephemeral = 1;
         }
         if (CmdLineParser_More())
         {
