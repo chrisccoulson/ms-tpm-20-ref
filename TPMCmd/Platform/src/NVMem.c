@@ -134,8 +134,15 @@ LIB_EXPORT int _plat__NVEnable(
 #if FILE_BACKED_NV
     if(s_NvFile != NULL)
         return NV_ENABLE_SUCCESS;
+
     // Initialize all the bytes in the ram copy of the NV
     _plat__NvMemoryClear(0, NV_MEMORY_SIZE);
+
+    if(s_NV_ephemeral)
+    {
+        s_NvIsAvailable = TRUE;
+        return NV_ENABLE_SUCCESS;
+    }
 
     // If the file exists
     if(NvFileOpen("r+b") >= 0)
@@ -221,14 +228,14 @@ LIB_EXPORT int _plat__GetNvReadyState(void)
         retVal = NV_WRITEFAILURE;
 #if FILE_BACKED_NV
     else
-        retVal = (s_NvFile == NULL);
+        retVal = (!s_NV_ephemeral && s_NvFile == NULL);
 #endif
     return retVal;
 }
 
 //***_plat__NvMemoryRead()
 // Function: Read a chunk of NV memory
-//  Return Type: int
+//  Return TxxXXype: int
 //      TRUE(1)         offset and size is within available NV size
 //      FALSE(0)        otherwise; also trigger failure mode
 LIB_EXPORT int _plat__NvMemoryRead(unsigned int startOffset,  // IN: read start
@@ -337,6 +344,8 @@ LIB_EXPORT int _plat__NvMemoryMove(unsigned int sourceOffset,  // IN: source off
 LIB_EXPORT int _plat__NvCommit(void)
 {
 #if FILE_BACKED_NV
+    if(s_NV_ephemeral)
+        return 0;
     return (NvFileCommit() ? 0 : 1);
 #else
     return 0;

@@ -4,6 +4,7 @@
 //** Includes, Defines, Data Definitions, and Function Prototypes
 #include "simulatorPrivate.h"
 #include <CryptoInterface.h>
+#include <Platform.h>
 
 #define PURPOSE                                                                 \
     "TPM 2.0 Reference Simulator.\n"                                            \
@@ -51,6 +52,8 @@ static void Usage(const char* programName)
             "   -h (--help) or ? - print this message\n"
             "   -m (--manufacture) - forces NV state of the TPM simulator to be "
             "(re)manufactured\n"
+            "   -e (--ephemeral) - store the NV state of the TPM simulator in "
+            "memory only (implies -m)\n"
             "   -p (--pick_ports) - choose the next available TCP ports "
             "automatically "
             "if PortNum is not available\n",
@@ -196,6 +199,11 @@ int main(int argc, char* argv[])
         if(CmdLineParser_IsOptPresent("manufacture", "m"))
         {
             manufacture = true;
+        }
+        if (CmdLineParser_IsOptPresent("ephemeral", "e"))
+        {
+            manufacture = true;
+            s_NV_ephemeral = 1;
         }
         if(CmdLineParser_IsOptPresent("pick_ports", "p"))
         {

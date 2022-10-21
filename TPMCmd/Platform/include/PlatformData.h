@@ -74,6 +74,7 @@ EXTERN unsigned char s_NV[NV_MEMORY_SIZE];
 EXTERN int           s_NvIsAvailable;
 EXTERN int           s_NV_unrecoverable;
 EXTERN int           s_NV_recoverable;
+EXTERN int           s_NV_ephemeral;
 
 // For PPPlat.c
 // Physical presence.  It is initialized to FALSE
