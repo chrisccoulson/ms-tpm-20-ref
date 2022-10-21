@@ -96,6 +96,10 @@ struct
 
 #endif // __IGNORE_STATE___
 
+#if defined(__unix__)
+static pthread_t PlatformServiceThreadId;
+#endif // __unix__
+
 //** Functions
 
 //*** CreateSocket()
@@ -206,12 +210,48 @@ PlatformServer(
                 _rpc__RsaKeyCacheControl(false);
                 break;
             case TPM_SESSION_END:
+            {
                 // Client signaled end-of-session
                 TpmEndSimulation();
+#if defined(__unix__)
+                // Wait a few seconds for the client to close their end of the
+                // socket to avoid us ending up with our end in TIME_WAIT.
+                struct timeval rcvtimeo = { .tv_sec = 5, .tv_usec = 0 };
+                setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &rcvtimeo,
+                           sizeof(rcvtimeo));
+                if(ReadBytes(s, (char*)&Command, 4))
+                {
+                    printf("Received platform interface command %d after "
+                           "TPM_SESSION_END - initiating connection close on the "
+                           "server. This is a client bug!\n", ntohl(Command));
+                }
+#endif // __unix__
                 return true;
+            }
             case TPM_STOP:
+            {
                 // Client requested the simulator to exit
+#if defined(__unix__)
+                // Wait a few seconds for the client to close their end of the
+                // socket to avoid us ending up with our end in TIME_WAIT.
+                struct timeval rcvtimeo = { .tv_sec = 5, .tv_usec = 0 };
+                setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &rcvtimeo,
+                           sizeof(rcvtimeo));
+                for(;;)
+                {
+                    if(!ReadBytes(s, (char*)&Command, 4))
+                        break;
+                    if(ntohl(Command) != TPM_SESSION_END)
+                    {
+                        printf("Received platform interface command %d after TPM_STOP - "
+                               "initiating connection close on the server. This is a "
+                               "client bug!\n", ntohl(Command));
+                        break;
+                    }
+                }
+#endif // __unix__
                 return false;
+            }
             case TPM_TEST_FAILURE_MODE:
                 _rpc__ForceFailureMode();
                 break;
@@ -323,6 +363,7 @@ PlatformSignalService(
     {
         printf("pthread_create failed: %s", strerror(ret));
     }
+    PlatformServiceThreadId = thread_id;
     return ret;
 #endif // _MSC_VER
 }
@@ -371,6 +412,7 @@ RegularCommandService(
         continueServing = TpmServer(serverSocket);
         closesocket(serverSocket);
     } while(continueServing);
+
     return 0;
 }
 
@@ -504,6 +546,14 @@ StartTcpServer(
         printf("RegularCommandService failed\n");
         return res;
     }
+#if defined(__unix__)
+    res = pthread_join(PlatformServiceThreadId, NULL);
+    if(res != 0)
+    {
+        printf("pthread_join failed\n");
+        return res;
+    }
+#endif // __unix__
     return 0;
 }
 
@@ -747,11 +797,48 @@ TpmServer(
                 // Alternative result is not applicable to the simulator.
                 break;
             case TPM_SESSION_END:
+            {
                 // Client signaled end-of-session
+#if defined(__unix__)
+                // Wait a few seconds for the client to close their end of the
+                // socket to avoid us ending up with our end in TIME_WAIT.
+                struct timeval rcvtimeo = { .tv_sec = 5, .tv_usec = 0 };
+                setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &rcvtimeo,
+                           sizeof(rcvtimeo));
+                if(ReadBytes(s, (char*)&Command, 4))
+                {
+                    printf("Received TPM interface command %d after "
+                           "TPM_SESSION_END - initiating connection close on the "
+                           "server. This is a client bug!\n", ntohl(Command));
+                }
+#endif // __unix__
                 return true;
+            }
             case TPM_STOP:
+            {
                 // Client requested the simulator to exit
+#if defined(__unix__)
+                // Wait a few seconds for the client to close their end of the
+                // socket to avoid us ending up with our end in TIME_WAIT.
+                printf("Client requested TPM interface stop.\n");
+                struct timeval rcvtimeo = { .tv_sec = 5, .tv_usec = 0 };
+                setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &rcvtimeo,
+                           sizeof(rcvtimeo));
+                for(;;)
+                {
+                    if(!ReadBytes(s, (char*)&Command, 4))
+                        break;
+                    if(ntohl(Command) != TPM_SESSION_END)
+                    {
+                        printf("Received TPM interface command %d after TPM_STOP - "
+                               "initiating connection close on the server. This is a "
+                               "client bug!\n", ntohl(Command));
+                        break;
+                    }
+                }
+#endif // __unix__
                 return false;
+            }
             default:
                 printf("Unrecognized TPM interface command %d\n", (int)Command);
                 return true;
